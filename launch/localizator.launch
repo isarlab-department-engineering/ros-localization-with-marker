@@ -1,0 +1,15 @@
+<launch>
+  <node pkg="localization" type="localizator" name="localizator" output="screen">
+
+  <rosparam>
+    markers: [
+    { id: 11, position: [0.0,0.0,0.0], rotation: 0.0 },
+    { id: 9,  position: [-0.40,0.0,0.20], rotation: 270.0 },
+    { id: 10,  position: [-0.25,0.0,0.40], rotation: 180.0 }
+    ]
+  </rosparam>
+
+  <param name="publish_rviz_markers" type="bool" value="true" />
+
+  </node>
+</launch>
