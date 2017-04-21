@@ -77,7 +77,7 @@ Point getInverseCoordSystemTransform(Point point, Point translation, float rotat
 }
 
 //
-// Find in markers map if the one visibile exists
+// Find in markers map if the visibile one exists
 // id: 		marker detected in frame
 // m:		marker to retrieve
 //
@@ -149,9 +149,9 @@ void markerCallback(aruco_detection::ArMarkers msg) {
 // Load markers configuration from YAML configuration file
 //
 //
-void loadMarkersMap() {
+void loadMarkersMap(ros::NodeHandle n) {
 
-	ros::NodeHandle _nh("~");	// access private params
+	//ros::NodeHandle _nh("~");	// access private params
 	XmlRpc::XmlRpcValue m;
 
     if(!_nh.getParam("markers", m))
@@ -175,7 +175,10 @@ void loadMarkersMap() {
 }
 
 
-
+//
+// Send marker msg to rviz
+//
+//
 void sendMarkerMessage(ros::NodeHandle n) {
 	const uint32_t shape = visualization_msgs::Marker::CUBE;
 
@@ -234,13 +237,13 @@ int main(int argc, char **argv)
   ros::Rate loop_rate(10);
 
   // load markers map
-  loadMarkersMap();
+  loadMarkersMap(n);
 
   n.getParam("publish_rviz_markers", publishRvizMarker);
   ROS_INFO("Show markers: %i", publishRvizMarker);
 
   // SUBSCRIBER
-  ros::Subscriber sub = n.subscribe("markers_stream_filtered", 10, markerCallback);
+  ros::Subscriber sub = n.subscribe("markers_stream", 10, markerCallback);
 
   // PUBLISHER
   pub = n.advertise<geometry_msgs::PointStamped>("aruco_position", 50);
