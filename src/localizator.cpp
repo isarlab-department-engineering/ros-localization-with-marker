@@ -154,7 +154,7 @@ void loadMarkersMap(ros::NodeHandle n) {
 	//ros::NodeHandle _nh("~");	// access private params
 	XmlRpc::XmlRpcValue m;
 
-    if(!_nh.getParam("markers", m))
+    if(!n.getParam("markers", m))
         ROS_ERROR("Failed to read param 'markers'");
     else {
     	ROS_INFO("Markers found: %i", m.size());
