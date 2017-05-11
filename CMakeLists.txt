@@ -7,6 +7,7 @@ add_definitions(-std=c++11)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
+  tf
   aruco_detection
 )
 

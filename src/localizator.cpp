@@ -8,7 +8,9 @@
 #include "std_msgs/String.h"
 #include "geometry_msgs/Point.h"
 #include "geometry_msgs/PointStamped.h"
+
 #include <visualization_msgs/Marker.h>
+#include <tf/transform_broadcaster.h>
 
 #include "aruco_detection/ArMarkers.h"
 
@@ -29,7 +31,8 @@ struct Marker {
 
 bool publishRvizMarker = false;
 
-static std::vector<float> toQuaternion(double pitch, double roll, double yaw);
+
+void sendTF(Point msg, float rotation);
 const string FRAME_NAME = "/marker_map";
 
 // markers in the map loaded from config file
@@ -130,12 +133,13 @@ void markerCallback(aruco_detection::ArMarkers msg) {
 		  	mapPos.point = getInverseCoordSystemTransform(mkrPos, marker.position, marker.rotation);
 		  	mapPos.header.frame_id = FRAME_NAME;
 
-		  	// for tracking, msg.header.stamp is the time of currrent message
+		  	// for tracking purpose, msg.header.stamp is the time of currrent message
 		  	//ROS_INFO("Time: %i", msg.header.stamp.nsec);
 
 		  	ROS_INFO("I'm (x=%f, y=%f, z=%f) in MARKER %i coords system", mkrPos.x, mkrPos.y, mkrPos.z, id);
 		  	ROS_INFO("I'm (x=%f, y=%f, z=%f) in MAP coords system", mapPos.point.x, mapPos.point.y, mapPos.point.z);
 
+		  	sendTF(mapPos.point, rotation);
 		  	pub.publish(mapPos);
 	  	}
 
@@ -168,7 +172,7 @@ void loadMarkersMap(ros::NodeHandle n) {
         curM.position.x = (double)m[i]["position"][0];
         curM.position.y = (double)m[i]["position"][1];
         curM.position.z = (double)m[i]["position"][2];
-        curM.rotation = (double)m[i]["rotation"] * (M_PI/180);;
+        curM.rotation = (double)m[i]["rotation"] * (M_PI/180);
 
         markers.push_back(curM);
     }
@@ -203,11 +207,13 @@ void sendMarkerMessage(ros::NodeHandle n) {
 		marker.pose.position.x = markers[i].position.x;
 		marker.pose.position.y = markers[i].position.y;
 		marker.pose.position.z = markers[i].position.z;
-		std::vector<float> rot = toQuaternion(0, 0, markers[i].rotation);
-		marker.pose.orientation.x = rot[1];
-		marker.pose.orientation.y = rot[2];
-		marker.pose.orientation.z = rot[0];
-		marker.pose.orientation.w = rot[3];
+		
+		tf::Quaternion quat;
+  		quat.setRPY(0, 0, markers[i].rotation);
+  		geometry_msgs::Quaternion geomQ = marker.pose.orientation;
+  		tf::quaternionTFToMsg(quat, geomQ);
+		marker.pose.orientation = geomQ;
+
 		// Set the scale of the marker -- 1x1x1 here means 1m on a side
 		marker.scale.x = 0.05;
 		marker.scale.y = 0.05;
@@ -243,7 +249,7 @@ int main(int argc, char **argv)
   ROS_INFO("Show markers: %i", publishRvizMarker);
 
   // SUBSCRIBER
-  ros::Subscriber sub = n.subscribe("markers_stream", 10, markerCallback);
+  ros::Subscriber sub = n.subscribe("/markers_stream", 10, markerCallback);
 
   // PUBLISHER
   pub = n.advertise<geometry_msgs::PointStamped>("aruco_position", 50);
@@ -268,24 +274,37 @@ int main(int argc, char **argv)
 
 
 
+void sendTF(Point msg, float rotation) {
+  static tf::TransformBroadcaster tfBroadcaster;
+  // create opencv BASE TF * (x,-z,y)
+  tf::Transform baseTf;
+  baseTf.setOrigin( tf::Vector3(0,0,0) );
+  tf::Quaternion baseQ;
+  baseQ.setRPY(0.5*M_PI, 0, M_PI);
+  baseTf.setRotation(baseQ);
+  tfBroadcaster.sendTransform(tf::StampedTransform(baseTf, ros::Time::now(), "world", "myWorld"));
 
+  // send markers tf
+  for(int i=0; i < markers.size(); ++i) {
+	tf::Transform transform;
+	Point p = markers[i].position;
+	transform.setOrigin(tf::Vector3(p.x, p.y, p.z));
 
+	tf::Quaternion q;
+	q.setRPY(0, -markers[i].rotation, 0);
+	transform.setRotation(q);
+	
+	std::string tfName = "marker#" + std::to_string(markers[i].id);
+	tfBroadcaster.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "myWorld", tfName));
+  }
 
-static std::vector<float> toQuaternion(double pitch, double roll, double yaw)
-{
-	float x,y,z,w;
-	double t0 = std::cos(yaw * 0.5);
-	double t1 = std::sin(yaw * 0.5);
-	double t2 = std::cos(roll * 0.5);
-	double t3 = std::sin(roll * 0.5);
-	double t4 = std::cos(pitch * 0.5);
-	double t5 = std::sin(pitch * 0.5);
+  // send current position tf
+  tf::Transform robotTf;
+  robotTf.setOrigin( tf::Vector3(msg.x, msg.y, msg.z) );
+  
+  tf::Quaternion robotQ;
+  robotQ.setRPY(0, rotation, 0);
+  robotTf.setRotation(robotQ);
 
-	w = t0 * t2 * t4 + t1 * t3 * t5;
-	x = t0 * t3 * t4 - t1 * t2 * t5;
-	y = t0 * t2 * t5 + t1 * t3 * t4;
-	z = t1 * t2 * t4 - t0 * t3 * t5;
-
-	std::vector<float> v = {x, y, z, w};
-	return v;
+  tfBroadcaster.sendTransform(tf::StampedTransform(robotTf, ros::Time::now(), "myWorld", "rospibot"));
 }
