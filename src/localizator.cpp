@@ -6,11 +6,17 @@
 #include "ros/ros.h"
 #include "ros/package.h"
 #include "std_msgs/String.h"
+
 #include "geometry_msgs/Point.h"
 #include "geometry_msgs/PointStamped.h"
+#include <geometry_msgs/TransformStamped.h>
 
 #include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
+
 #include <tf/transform_broadcaster.h>
+#include <tf2_ros/static_transform_broadcaster.h>
+#include <tf2/LinearMath/Quaternion.h>
 
 #include "aruco_detection/ArMarkers.h"
 
@@ -19,7 +25,7 @@
 using namespace std;
 using namespace geometry_msgs;
 
-// ros basic elements
+// ros publishers
 ros::Publisher pub;
 ros::Publisher marker_pub;
 
@@ -29,11 +35,13 @@ struct Marker {
     double rotation;
 };
 
-bool publishRvizMarker = false;
+// TF and markers messages
+bool publishRvizMarkers = false;
 
-
-void sendTF(Point msg, float rotation);
-const string FRAME_NAME = "/marker_map";
+void sendBaseTF();
+void sendMarkersTF();
+visualization_msgs::Marker createMarkerMessage(const Marker marker, const std::string markerFrame);
+void sendCurrentPositionTF(const Point msg, const float rotation);
 
 // markers in the map loaded from config file
 std::vector<Marker> markers;
@@ -101,7 +109,6 @@ void markerCallback(aruco_detection::ArMarkers msg) {
 	Point r,t;
 	int markerNo = msg.markerNo;
   	
-  	// LOCALIZE based on found marker position
   	if(markerNo > 0) {
 	  	// analyze only first marker
 	  	int id = msg.markersIds[0];
@@ -131,7 +138,7 @@ void markerCallback(aruco_detection::ArMarkers msg) {
 		  	// MAP COORD SYSTEM
 		  	PointStamped mapPos;
 		  	mapPos.point = getInverseCoordSystemTransform(mkrPos, marker.position, marker.rotation);
-		  	mapPos.header.frame_id = FRAME_NAME;
+		  	mapPos.header.frame_id = "markersWorld";
 
 		  	// for tracking purpose, msg.header.stamp is the time of currrent message
 		  	//ROS_INFO("Time: %i", msg.header.stamp.nsec);
@@ -139,7 +146,7 @@ void markerCallback(aruco_detection::ArMarkers msg) {
 		  	ROS_INFO("I'm (x=%f, y=%f, z=%f) in MARKER %i coords system", mkrPos.x, mkrPos.y, mkrPos.z, id);
 		  	ROS_INFO("I'm (x=%f, y=%f, z=%f) in MAP coords system", mapPos.point.x, mapPos.point.y, mapPos.point.z);
 
-		  	sendTF(mapPos.point, rotation);
+		  	if(publishRvizMarkers) sendCurrentPositionTF(mapPos.point, marker.rotation - r.z);
 		  	pub.publish(mapPos);
 	  	}
 
@@ -147,13 +154,11 @@ void markerCallback(aruco_detection::ArMarkers msg) {
   
 }
 
-
-
 //
 // Load markers configuration from YAML configuration file
 //
 //
-void loadMarkersMap(ros::NodeHandle n) {
+void loadMarkersMap(const ros::NodeHandle n) {
 
 	//ros::NodeHandle _nh("~");	// access private params
 	XmlRpc::XmlRpcValue m;
@@ -179,58 +184,6 @@ void loadMarkersMap(ros::NodeHandle n) {
 }
 
 
-//
-// Send marker msg to rviz
-//
-//
-void sendMarkerMessage(ros::NodeHandle n) {
-	const uint32_t shape = visualization_msgs::Marker::CUBE;
-
-	for(int i=0; i<markers.size(); i++) {
-		visualization_msgs::Marker marker;
-
-	    // Set the frame ID and timestamp.  See the TF tutorials for information on these.
-	    marker.header.frame_id = FRAME_NAME;
-	    marker.header.stamp = ros::Time::now();
-	    // Set the namespace and id for this marker.  This serves to create a unique ID
-	      // Any marker sent with the same namespace and id will overwrite the old one
-		marker.ns = "localization";
-	    marker.id = markers[i].id;
-	   
-		// Set the marker type.  Initially this is CUBE, and cycles between that and SPHERE, ARROW, and CYLINDER
-		marker.type = shape;
-
-		// Set the marker action.  Options are ADD, DELETE, and new in ROS Indigo: 3 (DELETEALL)
-		marker.action = visualization_msgs::Marker::ADD;
-
-		// Set the pose of the marker.  This is a full 6DOF pose relative to the frame/time specified in the header
-		marker.pose.position.x = markers[i].position.x;
-		marker.pose.position.y = markers[i].position.y;
-		marker.pose.position.z = markers[i].position.z;
-		
-		tf::Quaternion quat;
-  		quat.setRPY(0, 0, markers[i].rotation);
-  		geometry_msgs::Quaternion geomQ = marker.pose.orientation;
-  		tf::quaternionTFToMsg(quat, geomQ);
-		marker.pose.orientation = geomQ;
-
-		// Set the scale of the marker -- 1x1x1 here means 1m on a side
-		marker.scale.x = 0.05;
-		marker.scale.y = 0.05;
-		marker.scale.z = 0.002;
-		// Set the color -- be sure to set alpha to something non-zero!
-		marker.color.r = 1.0f;
-		marker.color.g = 0.0f;
-		marker.color.b = 0.0f;
-		marker.color.a = 1.0;
-
-		marker.lifetime = ros::Duration();
-
-		marker_pub.publish(marker);
-	}
-   
-}
-
 /*
  *
  */
@@ -245,22 +198,23 @@ int main(int argc, char **argv)
   // load markers map
   loadMarkersMap(n);
 
-  n.getParam("publish_rviz_markers", publishRvizMarker);
-  ROS_INFO("Show markers: %i", publishRvizMarker);
+  n.getParam("publish_rviz_markers", publishRvizMarkers);
+  ROS_INFO("Show markers: %i", publishRvizMarkers);
 
   // SUBSCRIBER
   ros::Subscriber sub = n.subscribe("/markers_stream", 10, markerCallback);
 
   // PUBLISHER
-  pub = n.advertise<geometry_msgs::PointStamped>("aruco_position", 50);
-  if(publishRvizMarker) marker_pub = n.advertise<visualization_msgs::Marker>("marker_visualization", 1);
+  pub = n.advertise<geometry_msgs::PointStamped>("aruco_position", 10);
+  if(publishRvizMarkers) marker_pub = n.advertise<visualization_msgs::MarkerArray>("marker_visualization", 1);
 
+  sendBaseTF();
 
   while (ros::ok())
   {
     ros::spinOnce();
 
-    if(publishRvizMarker) sendMarkerMessage(n);
+    if(publishRvizMarkers) sendMarkersTF();
 
     loop_rate.sleep();
   }
@@ -272,19 +226,40 @@ int main(int argc, char **argv)
 
 
 
+// --- RVIZ ---
+
+//
+// create BASE TF -> (x,-z,y)
+//
+void sendBaseTF() {
+  static tf2_ros::StaticTransformBroadcaster static_broadcaster;
+
+  geometry_msgs::TransformStamped static_transformStamped;
+  static_transformStamped.header.stamp = ros::Time::now();
+  static_transformStamped.header.frame_id = "world";
+  static_transformStamped.child_frame_id = "markersWorld";
+  static_transformStamped.transform.translation.x = 0;
+  static_transformStamped.transform.translation.y = 0;
+  static_transformStamped.transform.translation.z = 0;
+  tf2::Quaternion quat;
+  quat.setRPY(0.5*M_PI, 0, M_PI);
+  static_transformStamped.transform.rotation.x = quat.x();
+  static_transformStamped.transform.rotation.y = quat.y();
+  static_transformStamped.transform.rotation.z = quat.z();
+  static_transformStamped.transform.rotation.w = quat.w();
+
+  static_broadcaster.sendTransform(static_transformStamped);
+}
 
 
-void sendTF(Point msg, float rotation) {
+//
+// Sends static markers tf
+//
+void sendMarkersTF() {
   static tf::TransformBroadcaster tfBroadcaster;
-  // create opencv BASE TF * (x,-z,y)
-  tf::Transform baseTf;
-  baseTf.setOrigin( tf::Vector3(0,0,0) );
-  tf::Quaternion baseQ;
-  baseQ.setRPY(0.5*M_PI, 0, M_PI);
-  baseTf.setRotation(baseQ);
-  tfBroadcaster.sendTransform(tf::StampedTransform(baseTf, ros::Time::now(), "world", "myWorld"));
 
   // send markers tf
+  visualization_msgs::MarkerArray markerArray;
   for(int i=0; i < markers.size(); ++i) {
 	tf::Transform transform;
 	Point p = markers[i].position;
@@ -294,9 +269,57 @@ void sendTF(Point msg, float rotation) {
 	q.setRPY(0, -markers[i].rotation, 0);
 	transform.setRotation(q);
 	
-	std::string tfName = "marker#" + std::to_string(markers[i].id);
-	tfBroadcaster.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "myWorld", tfName));
+	std::string markerTFName = "marker#" + std::to_string(markers[i].id);
+	tfBroadcaster.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "markersWorld", markerTFName));
+	
+	markerArray.markers.push_back(createMarkerMessage(markers[i], markerTFName));
   }
+
+  marker_pub.publish(markerArray);
+}
+
+//
+// Create visualization_msgs::Marker message
+//
+visualization_msgs::Marker createMarkerMessage(const Marker marker, const std::string markerFrame) {
+	visualization_msgs::Marker m;
+
+    m.header.frame_id = markerFrame;
+    m.header.stamp = ros::Time::now();
+    // Set the namespace and id for this marker.  This serves to create a unique ID
+    // Any marker sent with the same namespace and id will overwrite the old one
+	m.ns = "localization";
+    m.id = marker.id;
+   
+	m.type = visualization_msgs::Marker::CUBE;		// set the marker type
+	m.action = visualization_msgs::Marker::ADD;		// Set the marker action. {ADD, DELETE, DELETEALL (new in Indigo 3)}
+	// Set the pose of the marker.  This is a full 6DOF pose relative to the frame/time specified in the header
+	m.pose.position.x = 0;
+	m.pose.position.y = 0;
+	m.pose.position.z = 0;
+	// Set the orientation -- quaternion
+	m.pose.orientation.x = 0.0;
+	m.pose.orientation.y = 0.0;
+	m.pose.orientation.z = 0.0;
+	m.pose.orientation.w = 1.0;
+	// Set the scale -- 1x1x1 means 1m per side
+	m.scale.x = 0.08;
+	m.scale.y = 0.08;
+	m.scale.z = 0.003;
+	// Set the color -- be sure to set alpha to something non-zero!
+	m.color.r = 1.0;
+	m.color.g = 1.0;
+	m.color.b = 1.0;
+	m.color.a = 1.0;
+
+	m.lifetime = ros::Duration();
+
+	return m;
+}
+
+
+void sendCurrentPositionTF(const Point msg, const float rotation) {
+  static tf::TransformBroadcaster tfBroadcaster;
 
   // send current position tf
   tf::Transform robotTf;
@@ -306,5 +329,5 @@ void sendTF(Point msg, float rotation) {
   robotQ.setRPY(0, rotation, 0);
   robotTf.setRotation(robotQ);
 
-  tfBroadcaster.sendTransform(tf::StampedTransform(robotTf, ros::Time::now(), "myWorld", "rospibot"));
+  tfBroadcaster.sendTransform(tf::StampedTransform(robotTf, ros::Time::now(), "markersWorld", "rospibot"));
 }
