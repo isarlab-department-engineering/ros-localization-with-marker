@@ -36,8 +36,8 @@ float targetXDistance;
 float targetZDistance = 0;
 float targetAngle = 0;
 
-const float Kx = 255/0.03;
-const float Kz = 255/0.15;
+const float Kx = 255/0.3;
+const float Kz = 255/1.5;
 
 // Filter
 float estimatedLeftMPower;
