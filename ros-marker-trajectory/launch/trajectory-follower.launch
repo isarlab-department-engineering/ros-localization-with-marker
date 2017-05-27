@@ -1,6 +1,6 @@
 <launch>
 
-  <node name="trajectory_follower" pkg="ros_marker_trajectory" type="trajectory_follower">
+  <node name="trajectory_follower" pkg="ros_marker_trajectory" type="trajectory_follower" output="screen">
      <param name="xdistance" value="0.1" />
   </node>
 
