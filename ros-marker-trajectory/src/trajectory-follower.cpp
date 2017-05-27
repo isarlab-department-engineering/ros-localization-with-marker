@@ -141,7 +141,7 @@ int main(int argc, char **argv)
   ros::Subscriber sub = n.subscribe("/markers_stream", 5, markerCallback);
 
   // PUBLISHER   
-  pub = n.advertise<std_msgs::Int16MultiArray>("cmd", 5);
+  pub = n.advertise<std_msgs::Int16MultiArray>("/cmd", 5);
 
   while (ros::ok()) {     
 	ros::spinOnce();
