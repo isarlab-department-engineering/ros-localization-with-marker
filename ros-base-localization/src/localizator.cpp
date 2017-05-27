@@ -11,8 +11,6 @@
 #include "geometry_msgs/PointStamped.h"
 #include <geometry_msgs/TransformStamped.h>
 
-#include <visualization_msgs/Marker.h>
-
 #include "aruco_detection/ArMarkers.h"
 
 #include <math.h>
