@@ -13,6 +13,8 @@ Subscribes to aruco_detection topic:
 
 # Parameters
 
-<param name="xdistance" value="0.1" />
+Can be launched by typing:
+    roslaunch ros_marker_trajectory aio_trajectory_follower.launch
 
-
+Requires one param:
+    <param name="xdistance" value="0.1" />
