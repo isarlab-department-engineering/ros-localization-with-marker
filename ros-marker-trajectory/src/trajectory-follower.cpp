@@ -34,7 +34,7 @@ struct Marker {
 float targetXDistance = 0.1;
 const float K = 255/1.4;
 //const float Kx = 255/0.4;
-//const float Kz = 255/1.5;
+
 
 // Filter
 float estimatedLeftMPower;
@@ -106,9 +106,9 @@ void markerCallback(aruco_detection::ArMarkers msg) {
 		ROS_INFO("(%f, %f)",error.x, error.z);
 		//double errorAngle = marker.rotation - targetAngle;
 
-		// z target
-		short int leftMPower = 70 +  (error.x > 0 ? limit(K * error.x, -120, 120) : 0);//limit(Kz * errorZ, 0.0, 255.0)/2;
-		short int rightMPower = 70 + (error.x > 0 ? 0 : -limit(K * error.x, -120, 120));//limit(Kz * errorZ, 0.0, 255.0)/2;
+		// pos target
+		short int leftMPower = 80 +  (error.x > 0 ? limit(K * error.x, -120, 120) : 0);//limit(Kz * errorZ, 0.0, 255.0)/2;
+		short int rightMPower = 80 + (error.x > 0 ? 0 : -limit(K * error.x, -120, 120));//limit(Kz * errorZ, 0.0, 255.0)/2;
 
 	  	std_msgs::Int16MultiArray motorSpeed;
 	  	motorSpeed.data = {leftMPower,rightMPower,0,0};
