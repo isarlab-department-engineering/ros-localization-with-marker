@@ -6,7 +6,7 @@
 #include "ros/ros.h"
 #include "ros/package.h"
 #include "std_msgs/String.h"
-#include "std_msgs/Int16MultiArray.h" 
+#include "std_msgs/Int16MultiArray.h"
 
 #include "geometry_msgs/Point.h"
 #include "geometry_msgs/PointStamped.h"
@@ -30,14 +30,11 @@ struct Marker {
 };
 
 
-
 // Feedback controller
-float targetXDistance;
-float targetZDistance = 0;
-float targetAngle = 0;
-
-const float Kx = 255/0.3;
-const float Kz = 255/1.5;
+float targetXDistance = 0.1;
+const float K = 255/1.4;
+//const float Kx = 255/0.4;
+//const float Kz = 255/1.5;
 
 // Filter
 float estimatedLeftMPower;
@@ -45,6 +42,14 @@ float estimatedRightMPower;
 
 
 
+//
+// Point convenience initializer
+//
+Point CreatePoint(float x, float y, float z) {
+	Point p;
+	p.x = x; p.y = y; p.z = z;
+	return p;
+}
 
 //
 // Find nearest marker index
@@ -75,7 +80,7 @@ int indexOfNearest(const std::vector<double> pos) {
 // lowerLimit:	lower bound
 //
 double limit(const double value, const double lowerLimit, const double upperLimit) {
-	return value <= lowerLimit ? lowerLimit : value >= upperLimit ? upperLimit : value;
+	return (value <= lowerLimit ? lowerLimit : (value >= upperLimit ? upperLimit : value));
 }
 
 //
@@ -93,24 +98,17 @@ void markerCallback(aruco_detection::ArMarkers msg) {
 	  	marker.position.z = msg.tVecs[indexRef+2];
 	  	marker.rotation = msg.rVecs[indexRef+2];
 
+		Point currentPos = CreatePoint(0, 0, 0);
+		Point setpoint = CreatePoint(marker.position.x - targetXDistance, marker.position.y, marker.position.z - 0.20);
 	  	// errors
-		double errorX = marker.position.x - targetXDistance;
-		double errorZ = marker.position.z - targetZDistance;
-		double errorAngle = marker.rotation - targetAngle;
+		Point error = CreatePoint(setpoint.x - currentPos.x, setpoint.y - currentPos.y, setpoint.z - currentPos.z);
+	
+		ROS_INFO("(%f, %f)",error.x, error.z);
+		//double errorAngle = marker.rotation - targetAngle;
 
 		// z target
-		short int leftMPower = limit(Kz * errorZ, 0.0, 255.0);
-		short int rightMPower = limit(Kz * errorZ, 0.0, 255.0);
-
-		ROS_INFO("%i / %i", leftMPower, rightMPower);
-		// x target
-		leftMPower = limit(leftMPower - Kx * errorX, 0.0, 255.0);
-		rightMPower = limit(rightMPower + Kz * errorZ, 0.0, 255.0);
-
-		ROS_INFO("%i / %i", leftMPower, rightMPower);
-		// angle target
-
-
+		short int leftMPower = 70 +  (error.x > 0 ? limit(K * error.x, -120, 120) : 0);//limit(Kz * errorZ, 0.0, 255.0)/2;
+		short int rightMPower = 70 + (error.x > 0 ? 0 : -limit(K * error.x, -120, 120));//limit(Kz * errorZ, 0.0, 255.0)/2;
 
 	  	std_msgs::Int16MultiArray motorSpeed;
 	  	motorSpeed.data = {leftMPower,rightMPower,0,0};
@@ -122,7 +120,7 @@ void markerCallback(aruco_detection::ArMarkers msg) {
 		motorSpeed.data = {0,0,0,0};
 	  	pub.publish(motorSpeed);
 	}
-  
+
 }
 
 
