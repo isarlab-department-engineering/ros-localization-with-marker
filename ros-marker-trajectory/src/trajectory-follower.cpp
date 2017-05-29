@@ -37,6 +37,7 @@ const float K = 255/1.4;
 
 
 // Filter
+const float filterK = 0.75;
 float estimatedLeftMPower;
 float estimatedRightMPower;
 
@@ -110,8 +111,11 @@ void markerCallback(aruco_detection::ArMarkers msg) {
 		short int leftMPower = 80 +  (error.x > 0 ? limit(K * error.x, -120, 120) : 0);//limit(Kz * errorZ, 0.0, 255.0)/2;
 		short int rightMPower = 80 + (error.x > 0 ? 0 : -limit(K * error.x, -120, 120));//limit(Kz * errorZ, 0.0, 255.0)/2;
 
+		estimatedLeftMPower = (1-filterK)*estimatedLeftMPower  + filterK * leftMPower;
+		estimatedRightMPower= (1-filterK)*estimatedRightMPower + filterK * rightMPower;
+
 	  	std_msgs::Int16MultiArray motorSpeed;
-	  	motorSpeed.data = {leftMPower,rightMPower,0,0};
+	  	motorSpeed.data = {estimatedLeftMPower,estimatedRightMPower,0,0};
 	  	pub.publish(motorSpeed);
 
 	} else {
