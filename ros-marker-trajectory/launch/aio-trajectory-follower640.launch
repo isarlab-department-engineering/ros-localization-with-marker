@@ -1,0 +1,45 @@
+<launch>
+  <node name="aruco_detection" pkg="aruco_detection" type="aruco_detector" output="screen" >
+    <param name="cameraTopic" value="/usb_cam/image_raw" />
+    <param name="polygonal_approx_accurancy_rate" value="0.17" />
+    <param name="min_distance_to_border" value="0" />
+    <param name="max_erroneous_bits_in_border_rate" value="1.4" />
+    <param name="cameraMatrix11" value="8.4593236784888290e+02" />
+    <param name="cameraMatrix12" value="0." />
+    <param name="cameraMatrix13" value="3.3153041811029834e+02" />
+    <param name="cameraMatrix21" value="0." />
+    <param name="cameraMatrix22" value="8.3486574271647441e+02" />
+    <param name="cameraMatrix23" value="1.5344014779995098e+02" />
+    <param name="cameraMatrix31" value="0." />
+    <param name="cameraMatrix32" value="0." />
+    <param name="cameraMatrix33" value="1" />
+    <param name="distCoeffs11" value="-7.3264400575852526e-02" />
+    <param name="distCoeffs12" value="7.8015054259645489e-01" />
+    <param name="distCoeffs13" value="-2.0787018121184764e-02" />
+    <param name="distCoeffs14" value="4.6805596864618274e-03" />
+    <param name="distCoeffs15" value="-2.1083367350114397e+00" />
+  </node>
+
+  <node name="usb_cam" pkg="usb_cam" type="usb_cam_node" output="screen" >
+    <param name="video_device" value="/dev/video0" />
+    <param name="image_width" value="640" />
+    <param name="image_height" value="480" />
+    <param name="pixel_format" value="yuyv" />
+    <param name="contrast" value="32" />
+    <param name="brightness" value="200" />
+    <param name="camera_frame_id" value="usb_cam" />
+    <param name="io_method" value="mmap"/>
+  </node>
+
+  <node name="image_view" pkg="image_view" type="image_view" respawn="false" output="screen">
+    <remap from="image" to="/usb_cam/image_raw"/>
+    <param name="autosize" value="true" />
+  </node>
+
+  <node name="motor_hat" pkg="motor_hat" type="motor_hat_node" />
+
+  <node name="trajectory_follower" pkg="ros_marker_trajectory" type="trajectory_follower" output="screen">
+     <param name="xdistance" value="0.1" />
+  </node>
+
+</launch>
