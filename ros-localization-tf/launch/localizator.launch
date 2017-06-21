@@ -1,5 +1,5 @@
 <launch>
-  <node pkg="localization" type="localizator" name="localizator" output="screen">
+  <node pkg="localization_tf" name="localizator_tf" type="localizator-with-tf" output="screen">
 
   <rosparam>
     markers: [
