@@ -202,11 +202,11 @@ int main(int argc, char **argv)
   ROS_INFO("Show markers: %i", publishRvizMarkers);
 
   // SUBSCRIBER
-  ros::Subscriber sub = n.subscribe("/markers_stream", 10, markerCallback);
+  ros::Subscriber sub = n.subscribe("/markers_stream", 0, markerCallback);
 
   // PUBLISHER
-  pub = n.advertise<geometry_msgs::PointStamped>("aruco_position", 10);
-  if(publishRvizMarkers) marker_pub = n.advertise<visualization_msgs::MarkerArray>("marker_visualization", 1);
+  pub = n.advertise<geometry_msgs::PointStamped>("aruco_position", 0);
+  if(publishRvizMarkers) marker_pub = n.advertise<visualization_msgs::MarkerArray>("marker_visualization", 0);
 
   sendBaseTF();
 

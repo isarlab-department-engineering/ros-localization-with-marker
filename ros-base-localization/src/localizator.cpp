@@ -182,10 +182,10 @@ int main(int argc, char **argv)
   loadMarkersMap(n);
 
   // SUBSCRIBER
-  ros::Subscriber sub = n.subscribe("/markers_stream", 10, markerCallback);
+  ros::Subscriber sub = n.subscribe("/markers_stream", 0, markerCallback);
 
   // PUBLISHER
-  pub = n.advertise<geometry_msgs::PointStamped>("aruco_position", 10);
+  pub = n.advertise<geometry_msgs::PointStamped>("aruco_position", 0);
 
   while (ros::ok())
   {

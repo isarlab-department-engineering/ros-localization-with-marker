@@ -140,10 +140,10 @@ int main(int argc, char **argv)
   n.getParam("xdistance", targetXDistance);
 
   // SUBSCRIBER
-  ros::Subscriber sub = n.subscribe("/markers_stream", 5, markerCallback);
+  ros::Subscriber sub = n.subscribe("/markers_stream", 0, markerCallback);
 
   // PUBLISHER   
-  pub = n.advertise<std_msgs::Int16MultiArray>("/cmd", 5);
+  pub = n.advertise<std_msgs::Int16MultiArray>("/cmd", 0);
 
   while (ros::ok()) {     
 	ros::spinOnce();
