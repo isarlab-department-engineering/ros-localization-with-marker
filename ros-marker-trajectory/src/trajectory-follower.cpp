@@ -32,7 +32,7 @@ struct Marker {
 
 // Feedback controller
 float targetXDistance = 0.1;
-const float K = 255/1.4;
+const float K = 170;
 //const float Kx = 255/0.4;
 
 
