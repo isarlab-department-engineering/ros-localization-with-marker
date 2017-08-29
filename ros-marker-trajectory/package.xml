@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package>
-  <name>ros_marker_trajectory</name>
+  <name>marker_localization_trajectory</name>
   <version>0.1.0</version>
   <description>Follow a markers trajectory</description>
 
